@@ -20,7 +20,7 @@ with open('0x10.bin', 'br') as f:
         print(struct.unpack('>3f',data))
         obj.write("v  " + str(coord) + "\n")
 print("0x10 finished extracting.")
-eChk = open('0x11.bin', 'br')
+'''
 with open('0x11.bin', 'br') as e:
     while e:
         data = e.read(12)
@@ -32,3 +32,28 @@ with open('0x11.bin', 'br') as e:
         print(struct.unpack('>3f',data))
         obj.write("f  " + str(index) + "\n")
 print("0x11 finished extracting.")
+'''
+'''
+with open('0x18.bin', 'br') as e:
+    while e:
+        data = e.read(32)
+        try:
+            face = struct.unpack('>8f',data)
+        except struct.error as err:
+            break #eof
+        index = str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + " " + str(face[3]) + " " + str(face[4]) + " " + str(face[5]) + " " + str(face[6]) + " " + str(face[7])
+        print(struct.unpack('>8f',data))
+        obj.write("f  " + str(index) + "\n")
+print("0x18 finished extracting.")
+'''
+with open('0x30.bin', 'br') as e:
+    while e:
+        data = e.read(16)
+        try:
+            face = struct.unpack('>4i',data)
+        except struct.error as err:
+            break #eof
+        index = str(face[0]) + " " + str(face[1]) + " " + str(face[2]) + " " + str(face[3])
+        print(struct.unpack('>4i',data))
+        obj.write("f  " + str(index) + "\n")
+print("0x30 finished extracting.")
