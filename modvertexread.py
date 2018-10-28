@@ -1,7 +1,7 @@
 import sys
 import struct
 
-#Now we view the vertcies?
+#G R O U N D B R E A K I N G  T I M E
 skip = 0
 vertexNum = 0
 normalNum = 0
@@ -25,14 +25,10 @@ with open('0x10.bin', 'br') as f:
         #HARDCODE: Just in case we find a -0.0
         if round(vertex[0],4) == -0.0:
             continue
-        '''
-        if vertex[0] > 10 or vertex[0] < -10:
+        #HARDCODE: Some models are mean and place in large positions so we
+        #no them out of existance
+        if round(vertex[0],4) == -100:
             continue
-        if vertex[1] > 10 or vertex[1] < -10:
-            continue
-        if vertex[2] > 10 or vertex[2] < -10:
-            continue
-        '''
         coord = str(str(round(vertex[0],4)) + " " + str(round(vertex[1],4)) + " " + str(round(vertex[2],4)))
         print(struct.unpack('>3f',data))
         obj.write("v  " + str(coord) + "\n")
@@ -86,79 +82,64 @@ with open('0x30.bin', 'br') as e:
 print("0x30 finished extracting.")
 '''
 first = True
+paddingDone = False
+stripFound = False
 repeats = []
 repeatNum = 0
+skip = 0
 oldchk = ()
+vertices = 0
 with open('0x50.bin', 'br') as e:
+    #D A N G E R T I M E
     while e:
-        data = e.read(6)
-        try:
-            face = struct.unpack('>6B',data)
-        except struct.error as err:
-            break #eof
-        #HARDCODE: sometimes door.mod creates a 152 for face idk why
-        if face[0] == 152:
-            continue
-        if face[2] == 152:
-            continue
-        #Check if the faces reference out of bound indexes
-        for i in range(0,6,2):
-            if face[i] > vertexNum:
-                continue
-        #Is the entire face 0?
-        if face[0] + face[1] + face [2] + face [3] + face [4] + face [5]== 0:
-            continue
-        #Check if the faces referece out of bound normal indexes
-        for i in range(1,6,2):
-            if face[i] > normalNum:
-                continue
-        #Check for invalid faces
-        #Is the first vertex referenced again?
-        if face[0] == face[2]:
-            print("invalid face found")
-            continue
-        if face[0] == face[4]:
-            print("invalid face found")
-            continue
-        #Is the first vertex normal referenced again?
-        if face[1] == face[3]:
-            face = list(face)
-            face[1] = 1
-            face[3] = 2
-            face[5] = 3
-            face = tuple(face)
-        #create our tuple we will use to check for repeats
-        if first == True:
-            oldface = face
-            oldchk = oldface
-        #Is previous face same as new one?
-        if face == oldchk:
-            repeats.append(face)
-            oldface = face
-            first = False
-            print("Repeat face found.")
-            repeatNum += 1
-            continue
-        else:
-            oldface = face
-        #Is our new face a part of the repeat list?
-        if face in repeats:
-            repeats.append(face)
-            first = False
-            oldface = face
-            print("Repeat face found.")
-            repeatNum += 1
-            continue
-        else:
-            oldface = face
-        index = str(face[0]) + "//" + str(face[1]) + " " + str(face[2]) + "//" + str(face[3]) + " " + str(face[4]) + "//" + str(face[5])
-        print(struct.unpack('>6B',data))
-        obj.write("f  " + str(index) + "\n")
-        faceNum += 1
+        #The .mod starts a triangle strip primitive with 0x98, the next 2 bytes
+        #describe how many vertices are in the strip
+        #There is some padding at the start so we have to skip reading that
+        if not stripFound:
+            data = e.read(1)
+            try:
+                start = struct.unpack('>1B',data)
+                if start[0] == 152:
+                    stripFound = True
+                    continue
+                else:
+                    continue
+            except struct.error as err:
+                print("EOF")#trolled
+                break
+        #Have we found a new triangle strip?
+        if stripFound:
+            #Find how many vertices are in the strip
+            data = e.read(2)
+            try:
+                vertices = struct.unpack('>1H',data)
+            except struct.error as err:
+                print(vertices)
+        print(str(vertices[0]) + " vertices found in strip")
+        for x in range(int(vertices[0]/3)):
+            #Read 18 bytes of face data
+            data = e.read(18)
+            try:
+                #Convert the data into the vertex, normal and texture references
+                face = struct.unpack('>9H',data)
+            except struct.error as err:
+                break #eof
+            for x in range(0,9,2):
+                if face[x] > vertexNum or face[x] > 10000:
+                    print("Invalid face found")
+                    continue
+            for x in range(1,9,2):
+                if face[x] > normalNum or face[x] > 10000:
+                    print("Invalid face found")
+                    continue
+            #We don't support textures yet so we only add vertices and normals to the face
+            index = str(face[0]) + "//" + str(face[1]) + " " + str(face[3]) + "//" + str(face[4]) + " " + str(face[6]) + "//" + str(face[7])
+            print(face)
+            obj.write("f  " + str(index) + "\n")
+            faceNum += 1
+        stripFound = False
 print("0x50 finished extracting.")
 print(str(vertexNum) + " vertices created.")
 print(str(normalNum) + " normals created.")
 print(str(faceNum) + " faces created.")
 print(str(repeatNum) + " repeat faces found.")
-print(first)
-print(repeats)
