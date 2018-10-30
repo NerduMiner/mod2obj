@@ -81,11 +81,13 @@ with open('0x30.bin', 'br') as e:
         obj.write("f  " + str(index) + "\n")
 print("0x30 finished extracting.")
 '''
-first = True
 paddingDone = False
 stripFound = False
-repeats = []
-repeatNum = 0
+#Because I am not sure what descriptor dictates whether faces are in 8-bit or
+#16-bit, turn this variable to true if you are getting strange references
+read8bit = True
+done = False
+face8bit = []
 skip = 0
 oldchk = ()
 vertices = 0
@@ -116,30 +118,104 @@ with open('0x50.bin', 'br') as e:
             except struct.error as err:
                 print(vertices)
         print(str(vertices[0]) + " vertices found in strip")
-        for x in range(int(vertices[0]/3)):
-            #Read 18 bytes of face data
-            data = e.read(18)
-            try:
-                #Convert the data into the vertex, normal and texture references
-                face = struct.unpack('>9H',data)
-            except struct.error as err:
-                break #eof
-            for x in range(0,9,2):
-                if face[x] > vertexNum or face[x] > 10000:
-                    print("Invalid face found")
-                    continue
-            for x in range(1,9,2):
-                if face[x] > normalNum or face[x] > 10000:
-                    print("Invalid face found")
-                    continue
-            #We don't support textures yet so we only add vertices and normals to the face
-            index = str(face[0]) + "//" + str(face[1]) + " " + str(face[3]) + "//" + str(face[4]) + " " + str(face[6]) + "//" + str(face[7])
-            print(face)
-            obj.write("f  " + str(index) + "\n")
-            faceNum += 1
-        stripFound = False
+        if read8bit == True:
+            print("Reading indicies in 8-bit mode")
+            for x in range(int(vertices[0])):
+                #8-BIT READ MODE
+                #Read a single byte of face data
+                face8bit = []
+                data = e.read(1)
+                try:
+                    #Convert the data into the vertex, normal and texture references
+                    face = struct.unpack('>B',data)
+                except struct.error as err:
+                    break #eof
+                #Currently we will go through the file looking ONLY for actual hex, no 00s
+                #We might also get to the next strip with out enough data so we will
+                #append zeros
+                if normalNum > 0:
+                    while len(face8bit) < 9:
+                        if face[0] == 0:
+                            data = e.read(1)
+                            try:
+                                face = struct.unpack('>B',data)
+                            except struct.error as err:
+                                break #eof
+                            continue
+                        elif face[0] == 152:
+                            print("New Strip Found")
+                            break
+                        else:
+                            face8bit.append(face[0])
+                            data = e.read(1)
+                            try:
+                                face = struct.unpack('>B',data)
+                            except struct.error as err:
+                                break #eof
+                else:
+                    while len(face8bit) < 3:
+                        if face[0] == 0:
+                            data = e.read(1)
+                            try:
+                                face = struct.unpack('>B',data)
+                            except struct.error as err:
+                                break #eof
+                            continue
+                        elif face[0] == 152:
+                            print("New Strip Found")
+                            break
+                        else:
+                            face8bit.append(face[0])
+                            data = e.read(1)
+                            try:
+                                face = struct.unpack('>B',data)
+                            except struct.error as err:
+                                break #eof
+                            continue
+                #Prevent any repeat faces from being written
+                for x in range(3):
+                    try:
+                        if face8bit[0] == face8bit[x]:
+                            continue
+                    except IndexError:
+                        break
+                #We don't support textures yet so we only add vertices and normals to the face
+                if normalNum > 0:
+                    index = str(face8bit[0]) + "//" + str(face8bit[1]) + " " + str(face8bit[3]) + "//" + str(face8bit[4]) + " " + str(face8bit[6]) + "//" + str(face8bit[7])
+                else:
+                    try:
+                        index = str(face8bit[0]) + " " + str(face8bit[1]) + " " + str(face8bit[2])
+                    except IndexError:
+                        continue
+                print(face8bit)
+                obj.write("f  " + str(index) + "\n")
+                faceNum += 1
+                stripFound = False
+        else:
+            for x in range(int(vertices[0]/3)):
+                #16-BIT READ MODE
+                #Read 18 bytes of face data
+                data = e.read(18)
+                try:
+                    #Convert the data into the vertex, normal and texture references
+                    face = struct.unpack('>9H',data)
+                except struct.error as err:
+                    break #eof
+                for x in range(0,9,2):
+                    if face[x] > vertexNum or face[x] > 10000:
+                        print("Invalid face found")
+                        continue
+                for x in range(1,9,2):
+                    if face[x] > normalNum or face[x] > 10000:
+                        print("Invalid face found")
+                        continue
+                #We don't support textures yet so we only add vertices and normals to the face
+                index = str(face[0]) + "//" + str(face[1]) + " " + str(face[3]) + "//" + str(face[4]) + " " + str(face[6]) + "//" + str(face[7])
+                print(face)
+                obj.write("f  " + str(index) + "\n")
+                faceNum += 1
+                stripFound = False
 print("0x50 finished extracting.")
 print(str(vertexNum) + " vertices created.")
 print(str(normalNum) + " normals created.")
 print(str(faceNum) + " faces created.")
-print(str(repeatNum) + " repeat faces found.")
